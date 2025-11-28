@@ -1,4 +1,4 @@
-name: Build Debug APK
+name: Build Debug APK (capture full build output)
 
 on:
   push:
@@ -23,28 +23,17 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Cache Gradle packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-cache-${{ runner.os }}-${{ hashFiles('**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-cache-${{ runner.os }}-
-
-      - name: Install Gradle if wrapper missing
+      - name: Install tools if wrapper missing
         run: |
           if [ ! -f ./gradle/wrapper/gradle-wrapper.jar ]; then
-            echo "Gradle wrapper JAR missing. Downloading gradle distribution."
             sudo apt-get update -y
-            sudo apt-get install -y unzip wget
+            sudo apt-get install -y unzip wget zip
             wget https://services.gradle.org/distributions/gradle-8.5-bin.zip -O gradle.zip
             unzip -q gradle.zip -d gradle
             export PATH="$PWD/gradle/gradle-8.5/bin:$PATH"
           fi
 
-      - name: Build debug APK
+      - name: Build debug APK (gradle)
         run: |
           if [ -f ./gradlew ]; then
             chmod +x ./gradlew || true
@@ -57,15 +46,23 @@ jobs:
 
       - name: Show outputs folder (debug)
         run: |
-          echo "=== LIST app/build/outputs ==="
-          ls -la app/build/outputs || true
-          echo "=== LIST app/build/outputs/apk ==="
-          ls -la app/build/outputs/apk || true
-          echo "=== LIST app/build/outputs/apk/debug ==="
-          ls -la app/build/outputs/apk/debug || true
+          echo "=== LIST app/build (tree) ==="
+          ls -la app/build || true
+          echo "=== LIST app/build/outputs (tree) ==="
+          ls -laR app/build/outputs || true
 
-      - name: Upload any debug APK(s)
+      - name: Zip full build folder
+        run: |
+          mkdir -p artifact
+          if [ -d app/build ]; then
+            zip -r artifact/app-build.zip app/build || true
+          else
+            echo "no app/build folder produced" > artifact/app-build-missing.txt
+          fi
+          ls -la artifact || true
+
+      - name: Upload full build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: onepluscleaner-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: full-build-output
+          path: artifact/*
