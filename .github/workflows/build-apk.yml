@@ -29,18 +29,18 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-cache-${{ matrix.os }}-${{ hashFiles('**/gradle-wrapper.properties') }}
+          key: gradle-cache-${{ runner.os }}-${{ hashFiles('**/gradle-wrapper.properties') }}
           restore-keys: |
-            gradle-cache-${{ matrix.os }}-
+            gradle-cache-${{ runner.os }}-
 
-      - name: Install Gradle (if wrapper missing)
+      - name: Install Gradle if wrapper missing
         run: |
           if [ ! -f ./gradle/wrapper/gradle-wrapper.jar ]; then
-            echo "Gradle wrapper JAR missing. Installing Gradle CLI to run build."
+            echo "Gradle wrapper JAR missing. Downloading gradle distribution."
             sudo apt-get update -y
             sudo apt-get install -y unzip wget
             wget https://services.gradle.org/distributions/gradle-8.5-bin.zip -O gradle.zip
-            unzip gradle.zip -d gradle
+            unzip -q gradle.zip -d gradle
             export PATH="$PWD/gradle/gradle-8.5/bin:$PATH"
           fi
 
@@ -55,8 +55,17 @@ jobs:
         env:
           JAVA_TOOL_OPTIONS: "-Xmx2g"
 
-      - name: Upload debug APK artifact
+      - name: Show outputs folder (debug)
+        run: |
+          echo "=== LIST app/build/outputs ==="
+          ls -la app/build/outputs || true
+          echo "=== LIST app/build/outputs/apk ==="
+          ls -la app/build/outputs/apk || true
+          echo "=== LIST app/build/outputs/apk/debug ==="
+          ls -la app/build/outputs/apk/debug || true
+
+      - name: Upload any debug APK(s)
         uses: actions/upload-artifact@v4
         with:
           name: onepluscleaner-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/*.apk
