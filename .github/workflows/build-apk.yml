@@ -1,0 +1,62 @@
+name: Build Debug APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-cache-${{ matrix.os }}-${{ hashFiles('**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-cache-${{ matrix.os }}-
+
+      - name: Install Gradle (if wrapper missing)
+        run: |
+          if [ ! -f ./gradle/wrapper/gradle-wrapper.jar ]; then
+            echo "Gradle wrapper JAR missing. Installing Gradle CLI to run build."
+            sudo apt-get update -y
+            sudo apt-get install -y unzip wget
+            wget https://services.gradle.org/distributions/gradle-8.5-bin.zip -O gradle.zip
+            unzip gradle.zip -d gradle
+            export PATH="$PWD/gradle/gradle-8.5/bin:$PATH"
+          fi
+
+      - name: Build debug APK
+        run: |
+          if [ -f ./gradlew ]; then
+            chmod +x ./gradlew || true
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          else
+            gradle :app:assembleDebug --no-daemon --stacktrace
+          fi
+        env:
+          JAVA_TOOL_OPTIONS: "-Xmx2g"
+
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: onepluscleaner-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
